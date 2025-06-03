@@ -54,11 +54,13 @@ class RobotController:
             twist.angular.z = 0.0
             twist.linear.x = 0.0  
             rospy.loginfo("WAITING")
+            
         
         elif current_state == "AVOIDING":
             # Turn right and back up slightly
-            twist.angular.z = self.turning_speed  # Turn right
-            twist.linear.x = 0.0  # Stop moving forward
+            #twist.angular.z = self.turning_speed  # Turn right
+            #twist.linear.x = 0.0  # Stop moving forward
+            self.obstacle_avoidance_loop()
             rospy.loginfo("AVOIDING obstacle")
         
         elif current_state == "FOLLOWING" and person_center is not None:
@@ -123,6 +125,52 @@ class RobotController:
         normalized_error = error_x / norm_factor
 
         return normalized_error <= threshold
+        
+        
+    def obstacle_avoidance_loop(self):
+        """
+        Comportamiento reactivo tipo robot de limpieza.
+        Gira ligeramente a la izquierda y luego hace una curva hacia la derecha,
+        repitiendo el patrón mientras haya un obstáculo al frente.
+        """
+        rospy.loginfo("Iniciando maniobra de evasión tipo 'robot de limpieza'")
+        rate = rospy.Rate(10)  # 10 Hz
+
+        # Paso 1: Girar levemente a la izquierda durante 1 segundo
+        twist_left = Twist()
+        twist_left.angular.z = 0.2  # Giro leve a la izquierda
+        twist_left.linear.x = 0.1
+        rospy.loginfo("Girando a la izquierda")
+        start_time = rospy.Time.now()
+        while rospy.Time.now() - start_time < rospy.Duration(4.0):  # 1 segundo
+            self.move_robot(twist_left)
+            rate.sleep()
+
+        # Paso 2: Curva hacia la derecha con avance durante 2 segundos
+        twist_right = Twist()
+        twist_right.angular.z = -0.2  # Giro suave a la derecha
+        twist_right.linear.x = 0.1   # Avance lento
+        rospy.loginfo("Curvando a la derecha y avanzando")
+        start_time = rospy.Time.now()
+        while rospy.Time.now() - start_time < rospy.Duration(8.0):  # 2 segundos
+            self.move_robot(twist_right)
+            rate.sleep()
+            
+        # Paso 1: Girar levemente a la izquierda durante 1 segundo
+        twist_left = Twist()
+        twist_left.angular.z = 0.2  # Giro leve a la izquierda
+        twist_left.linear.x = 0.0
+        rospy.loginfo("Girando a la izquierda")
+        start_time = rospy.Time.now()
+        while rospy.Time.now() - start_time < rospy.Duration(4.0):  # 1 segundo
+            self.move_robot(twist_left)
+            rate.sleep()
+            
+        
+
+        rospy.loginfo("Obstáculo superado. Retomando comportamiento normal.")
+        self.stop_robot()
+
 
     	
     def move_robot(self, twist):
