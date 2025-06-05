@@ -20,7 +20,7 @@ class OdomHelper:
         q = self.latest_odom.pose.pose.orientation
         return tf.transformations.euler_from_quaternion([q.x, q.y, q.z, q.w])[2]
 
-    def rotate_relative(self, angle_rad, angular_speed=0.5):
+    def rotate_by_angle(self, angle_rad, angular_speed=0.5):
         """
         Rotates the robot exactly 'angle_rad' radians from its current orientation.
         Always take the shortest path and avoid unnecessary turns.
