@@ -5,6 +5,7 @@ from geometry_msgs.msg import Twist
 import math
 from odom_helper import OdomHelper
 from move_robot import MoveKobuki
+import time
 
 class RobotController:
     # Constants
@@ -142,6 +143,7 @@ class RobotController:
         self._move_forward_for_duration(self.avoidance_forward_speed, self.avoidance_forward_duration)
         self.odom_helper.rotate_by_angle(-rotation_angle, self.avoidance_turning_speed)
         self.stop_robot()
+        time.sleep(0.5)  # Short pause after avoidance maneuver
 
     def _get_avoidance_direction(self, obstacle_left, person_center):
         """
