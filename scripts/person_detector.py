@@ -21,7 +21,7 @@ class PersonDetector:
         self.person_detected = False
         self.person_center = None
         self.image_width = 640
-    
+
     def image_callback(self, data):
         """Process camera image and detect person"""
         try:
@@ -30,14 +30,14 @@ class PersonDetector:
             rospy.logerr(f"CV Bridge error: {e}")
             return
         
-        #self.image_width = frame.shape[1]
+        self.image_width = frame.shape[1]
         
         # YOLO detection
         results = self.model(frame, imgsz=self.image_width, verbose=False)[0]
         
         # Find person
-        person_found = False
-        person_x = None
+        self.person_detected = False
+        self.person_center = None
         
         if results.boxes is not None:
             for box in results.boxes:
@@ -46,20 +46,12 @@ class PersonDetector:
                 
                 if self.model.names[cls_id] == 'person' and confidence > 0.5:
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    person = ((x1 + x2) // 2, (y1 + y2) // 2)
-                    person_found = True
-                    
+                    self.person_center = ((x1 + x2) // 2, (y1 + y2) // 2)
+                    self.person_detected = True
+
                     # Draw box
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     break
-        
-        # Update state
-        if person_found:
-            self.person_detected = True
-            self.person_center = person
-        else:
-            self.person_detected = False
-            self.person_center = None
         
         # Show image
         cv2.imshow("Person Detection", frame)
