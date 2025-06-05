@@ -35,8 +35,14 @@ class ObstacleDetector:
         self.latest_scan = msg
 
     def is_obstacle_front(self):
-        return self.check_obstacle_in_sector(self.latest_scan, 340, 359, 1) or \
+        if self.latest_scan is None:
+            return False
+        else:
+            return self.check_obstacle_in_sector(self.latest_scan, 340, 359, 1) or \
                self.check_obstacle_in_sector(self.latest_scan, 0, 20, 1)
 
     def is_obstacle_left(self):
-        return self.check_obstacle_in_sector(self.latest_scan, 70, 110, 0.5)
+        if self.latest_scan is None:
+            return False
+        else:
+            return self.check_obstacle_in_sector(self.latest_scan, 70, 110, 0.5)
