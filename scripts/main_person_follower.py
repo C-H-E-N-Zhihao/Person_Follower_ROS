@@ -22,11 +22,12 @@ class PersonFollowerMain:
         while not rospy.is_shutdown():
             # Get sensor data
             obstacle_front = self.obstacle_detector.is_obstacle_front()
+            obstacle_left = self.obstacle_detector.is_obstacle_left()
             person_detected, person_center_x, image_width = self.person_detector.get_person_info()
             
             # Generate and send movement command
             twist = self.robot_controller.generate_twist(
-                person_detected, person_center_x, image_width, obstacle_front
+                person_detected, person_center_x, image_width, obstacle_front, obstacle_left
             )
             self.robot_controller.move_robot(twist)
             

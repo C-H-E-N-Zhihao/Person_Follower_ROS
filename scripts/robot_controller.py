@@ -47,7 +47,7 @@ class RobotController:
         
         return self.state
     
-    def generate_twist(self, person_detected, person_center, image_width, obstacle_front):
+    def generate_twist(self, person_detected, person_center, image_width, obstacle_front, obstacle_left):
         """Generate movement command based on current situation"""
         twist = Twist()
         
@@ -66,7 +66,7 @@ class RobotController:
             #twist.angular.z = self.turning_speed  # Turn right
             #twist.linear.x = 0.0  # Stop moving forward
             rospy.loginfo("AVOIDING obstacle")
-            self.obstacle_avoidance_loop()
+            self.obstacle_avoidance_loop(obstacle_left=obstacle_left)
         
         elif current_state == "FOLLOWING" and person_center is not None:
             # Follow person
@@ -111,15 +111,17 @@ class RobotController:
 
         return normalized_error <= threshold
         
-    def obstacle_avoidance_loop(self):
+    def obstacle_avoidance_loop(self, obstacle_left=False):
         """
         Reactive obstacle avoidance using odometry-based rotation.
         1. Rotate 90° to the left
         2. Move forward
         3. Rotate 90° to the right
         """
+        C = -1 if obstacle_left else 1
+
         # Step 1: Rotate 90° left (positive angle)
-        self.odom_helper.rotate_by_angle(math.radians(90))
+        self.odom_helper.rotate_by_angle(math.radians(90 * C))
 
         # Step 2: Move forward
         twist_forward = Twist()
@@ -132,7 +134,7 @@ class RobotController:
             rate.sleep()
 
         # Step 3: Rotate 90° right (negative angle)
-        self.odom_helper.rotate_by_angle(math.radians(-90))
+        self.odom_helper.rotate_by_angle(math.radians(-90 * C))
 
         self.stop_robot()
 

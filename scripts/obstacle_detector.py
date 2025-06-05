@@ -33,10 +33,14 @@ class ObstacleDetector:
 
     def scan_callback(self, msg):
         # Check obstacle in front sector (around ±20 degrees)
-        obstacle = self.check_obstacle_in_sector(msg, 340, 359) or \
+        self.obstacle_front = self.check_obstacle_in_sector(msg, 340, 359) or \
                    self.check_obstacle_in_sector(msg, 0, 20)
-        self.obstacle_front = obstacle
+
+        # Check obstacle in left sector (around ±20 degrees)
+        self.obstacle_left = self.check_obstacle_in_sector(msg, 70, 110)
 
     def is_obstacle_front(self):
         return self.obstacle_front
 
+    def is_obstacle_left(self):
+        return self.obstacle_left
