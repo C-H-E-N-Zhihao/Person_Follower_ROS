@@ -31,6 +31,7 @@ class RobotController:
         self.avoiding_threshold = 5
         self.avoidance_forward_duration = 2.0
         self.avoidance_forward_speed = 0.1
+        self.avoidance_turning_speed = 0.5
         
         # Detection parameters
         self.threshold_center_wp = 0.2
@@ -134,9 +135,9 @@ class RobotController:
         rotation_angle = math.radians(90 * rotation_direction)
         
         # Execute avoidance maneuver
-        self.odom_helper.rotate_by_angle(rotation_angle)
+        self.odom_helper.rotate_by_angle(rotation_angle, self.avoidance_turning_speed)
         self._move_forward_for_duration(self.avoidance_forward_speed, self.avoidance_forward_duration)
-        self.odom_helper.rotate_by_angle(-rotation_angle)
+        self.odom_helper.rotate_by_angle(-rotation_angle, self.avoidance_turning_speed)
         self.stop_robot()
 
     def _get_avoidance_direction(self, obstacle_left, person_center):
