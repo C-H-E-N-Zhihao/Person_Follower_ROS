@@ -8,7 +8,7 @@ from move_robot import MoveKobuki
 
 class RobotController:
     # Constants
-    CENTER_WAITING_PERSON = (320, 177)
+    CENTER_WAITING_PERSON = (330, 180)
     STATES = {
         'SEARCHING': 'SEARCHING',
         'FOLLOWING': 'FOLLOWING', 
@@ -28,13 +28,13 @@ class RobotController:
         
         # Avoidance parameters
         self.avoiding_counter = 0
-        self.avoiding_threshold = 5
+        self.avoiding_threshold = 3
         self.avoidance_forward_duration = 2.0
         self.avoidance_forward_speed = 0.1
         self.avoidance_turning_speed = 0.5
         
         # Detection parameters
-        self.threshold_center_wp = 0.2
+        self.threshold_center_wp = 0.25
         
         # State management
         self.current_state = self.STATES['SEARCHING']
@@ -42,13 +42,16 @@ class RobotController:
 
     def update_state(self, person_detected, person_center, obstacle_front):
         """Update robot state based on sensor inputs"""
-        if obstacle_front:
-            if person_detected and self._is_person_centered(person_center):
-                self.current_state = self.STATES['WAITING']
+        if person_detected:
+            if not obstacle_front:
+                self.current_state = self.STATES['FOLLOWING']
             else:
-                self.current_state = self.STATES['AVOIDING']
+                if self._is_person_centered(person_center):
+                    self.current_state = self.STATES['WAITING']
+                else:
+                    self.current_state = self.STATES['AVOIDING']
         else:
-            self.current_state = self.STATES['FOLLOWING'] if person_detected else self.STATES['SEARCHING']
+            self.current_state = self.STATES['SEARCHING']
 
     def generate_twist(self, person_detected, person_center, image_width, obstacle_front, obstacle_left):
         """Generate movement command based on current situation"""

@@ -8,6 +8,7 @@ class ObstacleDetector:
     def __init__(self):
         self.obstacle_front = False
         self.laser_sub = rospy.Subscriber("/scan", LaserScan, self.scan_callback)
+        self.latest_scan = None
 
     def angle_to_index(self, angle_deg, scan_msg):
         """Convert angle in degrees to index in ranges array."""
@@ -38,11 +39,11 @@ class ObstacleDetector:
         if self.latest_scan is None:
             return False
         else:
-            return self.check_obstacle_in_sector(self.latest_scan, 340, 359, 1) or \
-               self.check_obstacle_in_sector(self.latest_scan, 0, 20, 1)
+            return self.check_obstacle_in_sector(self.latest_scan, 340, 359, 0.75) or \
+               self.check_obstacle_in_sector(self.latest_scan, 0, 20, 0.75)
 
     def is_obstacle_left(self):
         if self.latest_scan is None:
             return False
         else:
-            return self.check_obstacle_in_sector(self.latest_scan, 70, 110, 0.5)
+            return self.check_obstacle_in_sector(self.latest_scan, 70, 110, 0.15)
