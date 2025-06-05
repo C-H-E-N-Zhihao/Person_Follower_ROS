@@ -65,8 +65,8 @@ class RobotController:
             # Turn right and back up slightly
             #twist.angular.z = self.turning_speed  # Turn right
             #twist.linear.x = 0.0  # Stop moving forward
-            self.obstacle_avoidance_loop()
             rospy.loginfo("AVOIDING obstacle")
+            self.obstacle_avoidance_loop()
         
         elif current_state == "FOLLOWING" and person_center is not None:
             # Follow person
