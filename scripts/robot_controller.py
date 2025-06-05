@@ -61,7 +61,7 @@ class RobotController:
         # State machine for movement generation
         twist_generators = {
             self.STATES['WAITING']: self._generate_waiting_twist,
-            self.STATES['AVOIDING']: lambda: self._generate_avoiding_twist(obstacle_left, person_center),
+            self.STATES['AVOIDING']: lambda: self._generate_avoiding_twist(obstacle_left),
             self.STATES['FOLLOWING']: lambda: self._generate_following_twist(person_center, image_width),
             self.STATES['SEARCHING']: self._generate_searching_twist
         }
@@ -77,7 +77,7 @@ class RobotController:
         rospy.loginfo("WAITING")
         return twist
 
-    def _generate_avoiding_twist(self, obstacle_left, person_center):
+    def _generate_avoiding_twist(self, obstacle_left):
         """Generate twist for obstacle avoidance"""
         twist = Twist()
         
@@ -90,7 +90,7 @@ class RobotController:
         # Execute avoidance maneuver when threshold is reached
         if self.avoiding_counter >= self.avoiding_threshold:
             rospy.loginfo("AVOIDING obstacle")
-            self._execute_obstacle_avoidance(obstacle_left, person_center)
+            self._execute_obstacle_avoidance(obstacle_left)
             self.avoiding_counter = 0
         
         return twist
@@ -129,13 +129,13 @@ class RobotController:
         
         return normalized_error <= self.threshold_center_wp
 
-    def _execute_obstacle_avoidance(self, obstacle_left, person_center):
+    def _execute_obstacle_avoidance(self, obstacle_left):
         """
         Simplified obstacle avoidance: rotate away from obstacle, 
         move forward, then rotate back
         """
         # Determine rotation direction
-        rotation_direction = self._get_avoidance_direction(obstacle_left, person_center)
+        rotation_direction = self._get_avoidance_direction(obstacle_left)
         rotation_angle = math.radians(90 * rotation_direction)
         
         # Execute avoidance maneuver
@@ -145,18 +145,13 @@ class RobotController:
         self.stop_robot()
         time.sleep(0.5)  # Short pause after avoidance maneuver
 
-    def _get_avoidance_direction(self, obstacle_left, person_center):
+    def _get_avoidance_direction(self, obstacle_left):
         """
         Determine which direction to rotate for obstacle avoidance
         Returns: 1 for left rotation, -1 for right rotation
         """
         # Default: rotate left
         direction = 1
-        
-        # If person is detected, consider their position
-        if person_center is not None:
-            person_is_left = person_center[0] < self.CENTER_WAITING_PERSON[0]
-            direction = 1 if person_is_left else -1
         
         # If obstacle is on the left, rotate right instead
         if obstacle_left:
