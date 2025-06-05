@@ -20,24 +20,33 @@ class OdomHelper:
         q = self.latest_odom.pose.pose.orientation
         return tf.transformations.euler_from_quaternion([q.x, q.y, q.z, q.w])[2]
 
-    def rotate_by_angle(self, angle_rad, angular_speed=0.3):
+    def rotate_relative(self, angle_rad, angular_speed=0.5):
+        """
+        Rotates the robot exactly 'angle_rad' radians from its current orientation.
+        Always take the shortest path and avoid unnecessary turns.
+        """
+        
         start_yaw = self.get_yaw()
-        target_yaw = start_yaw + angle_rad
-
-        # Normalize target yaw to [-pi, pi]
-        target_yaw = math.atan2(math.sin(target_yaw), math.cos(target_yaw))
+        direction = math.copysign(1.0, angle_rad)
+        remaining = abs(angle_rad)
 
         twist = Twist()
-        twist.angular.z = math.copysign(angular_speed, angle_rad)
+        twist.angular.z = direction * abs(angular_speed)
 
-        rate = rospy.Rate(10)
-        while not rospy.is_shutdown():
+        rate = rospy.Rate(10)  # Hz
+        prev_yaw = start_yaw
+        rotated = 0.0
+
+        while not rospy.is_shutdown() and rotated < remaining:
             current_yaw = self.get_yaw()
-            delta = math.atan2(math.sin(target_yaw - current_yaw), math.cos(target_yaw - current_yaw))
-            if abs(delta) < 0.02:
-                break
+
+            # Δyaw desde la iteración anterior (con wrap-around)
+            delta_yaw = math.atan2(math.sin(current_yaw - prev_yaw), math.cos(current_yaw - prev_yaw))
+            rotated += abs(delta_yaw)
+            prev_yaw = current_yaw
+
             self.move_fn(twist)
             rate.sleep()
 
-        # Stop the robot after rotation
-        self.move_fn(Twist())
+        self.move_fn(Twist())  # stop
+
