@@ -22,7 +22,10 @@ class OdomHelper:
 
     def rotate_by_angle(self, angle_rad, angular_speed=0.3):
         start_yaw = self.get_yaw()
-        target_yaw = math.atan2(math.sin(start_yaw + angle_rad), math.cos(start_yaw + angle_rad))
+        target_yaw = start_yaw + angle_rad
+
+        # Normalize target yaw to [-pi, pi]
+        target_yaw = math.atan2(math.sin(target_yaw), math.cos(target_yaw))
 
         twist = Twist()
         twist.angular.z = math.copysign(angular_speed, angle_rad)
