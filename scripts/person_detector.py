@@ -22,6 +22,8 @@ class PersonDetector:
         self.person_center = None
         self.image_width = 640
 
+        self.robot_state = "SEARCHING"  # Initial state
+
     def image_callback(self, data):
         """Process camera image and detect person"""
         try:
@@ -38,7 +40,7 @@ class PersonDetector:
         # Find person
         self.person_detected = False
         self.person_center = None
-        
+
         if results.boxes is not None:
             for box in results.boxes:
                 cls_id = int(box.cls[0])
@@ -52,6 +54,10 @@ class PersonDetector:
                     # Draw box
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                     break
+
+        # Draw robot state
+        cv2.putText(frame, f"State: {self.robot_state}", (10, 60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2, cv2.LINE_AA)
         
         # Show image
         cv2.imshow("Person Detection", frame)
@@ -60,6 +66,9 @@ class PersonDetector:
     def get_person_info(self):
         """Returns (detected, center_x, image_width)"""
         return self.person_detected, self.person_center, self.image_width
+    
+    def set_robot_state(self, state):
+        self.robot_state = state
     
     def cleanup(self):
         cv2.destroyAllWindows()

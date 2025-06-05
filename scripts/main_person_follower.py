@@ -30,7 +30,10 @@ class PersonFollowerMain:
                 person_detected, person_center_x, image_width, obstacle_front, obstacle_left
             )
             self.robot_controller.move_robot(twist)
-            
+
+            # Update person detector with robot state
+            self.person_detector.set_robot_state(self.robot_controller.current_state)
+
             rate.sleep()
     
     def cleanup(self):
