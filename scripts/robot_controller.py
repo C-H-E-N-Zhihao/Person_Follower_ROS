@@ -2,6 +2,8 @@
 
 import rospy
 from geometry_msgs.msg import Twist
+import math
+from odom_helper import OdomHelper
 from move_robot import MoveKobuki
 
 CENTER_WAITING_PERSON = (320, 177)
@@ -9,6 +11,9 @@ CENTER_WAITING_PERSON = (320, 177)
 class RobotController:
     def __init__(self):
         self.move_kobuki = MoveKobuki()
+
+        # Initialize OdomHelper for odometry-based movements
+        self.odom_helper = OdomHelper(self.move_robot)
         
         # Control parameters
         self.following_speed = 0.15
@@ -87,26 +92,6 @@ class RobotController:
             rospy.loginfo("SEARCHING for person")
         
         return twist
-    
-    def person_at_center(self, ground_truth, observed, threshold=0.1):
-        """
-        Determines whether the observed person is at the center, based on ground truth.
-        """
-        
-        if observed == None:
-            return False
-
-        # Compute Euclidean distance (L2 norm) between ground truth and observed center
-        dx = ground_truth[0] - observed[0]
-        dy = ground_truth[1] - observed[1]
-        error = (dx**2 + dy**2)**0.5
-
-        # Normalize error by magnitude of ground truth to make it scale-independent
-        norm_factor = (ground_truth[0]**2 + ground_truth[1]**2)**0.5
-
-        normalized_error = error / norm_factor
-
-        return normalized_error <= threshold
 
     def person_at_center_x(self, ground_truth, observed, threshold=0.1):
         """
@@ -126,49 +111,29 @@ class RobotController:
 
         return normalized_error <= threshold
         
-        
     def obstacle_avoidance_loop(self):
         """
-        Comportamiento reactivo tipo robot de limpieza.
-        Gira ligeramente a la izquierda y luego hace una curva hacia la derecha,
-        repitiendo el patrón mientras haya un obstáculo al frente.
+        Reactive obstacle avoidance using odometry-based rotation.
+        1. Rotate 90° to the left
+        2. Move forward
+        3. Rotate 90° to the right
         """
-        rospy.loginfo("Iniciando maniobra de evasión tipo 'robot de limpieza'")
-        rate = rospy.Rate(10)  # 10 Hz
+        # Step 1: Rotate 90° left (positive angle)
+        self.odom_helper.rotate_by_angle(math.radians(90))
 
-        # Paso 1: Girar levemente a la izquierda durante 1 segundo
-        twist_left = Twist()
-        twist_left.angular.z = 0.2  # Giro leve a la izquierda
-        twist_left.linear.x = 0.1
-        rospy.loginfo("Girando a la izquierda")
+        # Step 2: Move forward
+        twist_forward = Twist()
+        twist_forward.linear.x = 0.1
+        duration = rospy.Duration(2.0)
+        rate = rospy.Rate(10)
         start_time = rospy.Time.now()
-        while rospy.Time.now() - start_time < rospy.Duration(4.0):  # 1 segundo
-            self.move_robot(twist_left)
+        while rospy.Time.now() - start_time < duration and not rospy.is_shutdown():
+            self.move_robot(twist_forward)
             rate.sleep()
 
-        # Paso 2: Curva hacia la derecha con avance durante 2 segundos
-        twist_right = Twist()
-        twist_right.angular.z = -0.2  # Giro suave a la derecha
-        twist_right.linear.x = 0.1   # Avance lento
-        rospy.loginfo("Curvando a la derecha y avanzando")
-        start_time = rospy.Time.now()
-        while rospy.Time.now() - start_time < rospy.Duration(8.0):  # 2 segundos
-            self.move_robot(twist_right)
-            rate.sleep()
-            
-        # Paso 1: Girar levemente a la izquierda durante 1 segundo
-        twist_left = Twist()
-        twist_left.angular.z = 0.2  # Giro leve a la izquierda
-        twist_left.linear.x = 0.0
-        rospy.loginfo("Girando a la izquierda")
-        start_time = rospy.Time.now()
-        while rospy.Time.now() - start_time < rospy.Duration(4.0):  # 1 segundo
-            self.move_robot(twist_left)
-            rate.sleep()
-            
-        
+        # Step 3: Rotate 90° right (negative angle)
+        self.odom_helper.rotate_by_angle(math.radians(-90))
 
-        rospy.loginfo("Obstáculo superado. Retomando comportamiento normal.")
         self.stop_robot()
 
 
