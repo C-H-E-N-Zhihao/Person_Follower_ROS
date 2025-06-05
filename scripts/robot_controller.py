@@ -20,7 +20,12 @@ class RobotController:
         self.turning_speed = 0.15
         self.angular_gain = 0.001
         self.max_angular_speed = 0.8
-        
+
+        # Avoidance parameters
+        self.avoiding_counter = 0
+        self.avoiding_threshold = 5  # number of cycles before activating evasion
+        self.previous_state = None
+
         self.center_waiting_person = (320, 177)
         self.threshold_center_wp = 0.2
         
@@ -44,31 +49,39 @@ class RobotController:
                 
             else:
                 self.state = "SEARCHING"
-        
-        return self.state
     
     def generate_twist(self, person_detected, person_center, image_width, obstacle_front, obstacle_left):
         """Generate movement command based on current situation"""
         twist = Twist()
         
         # Update state
-        current_state = self.update_state(person_detected, person_center, obstacle_front)
+        self.update_state(person_detected, person_center, obstacle_front)
         
-        if current_state == "WAITING": 
+        if self.state == "WAITING": 
             print(person_center)
             twist.angular.z = 0.0
             twist.linear.x = 0.0  
             rospy.loginfo("WAITING")
             
         
-        elif current_state == "AVOIDING":
+        elif self.state == "AVOIDING":
             # Turn right and back up slightly
             #twist.angular.z = self.turning_speed  # Turn right
             #twist.linear.x = 0.0  # Stop moving forward
-            rospy.loginfo("AVOIDING obstacle")
-            self.obstacle_avoidance_loop(obstacle_left=obstacle_left)
+
+            # Incrementar contador si sigue en el mismo estado
+            if self.previous_state == "AVOIDING":
+                self.avoiding_counter += 1
+            else:
+                self.avoiding_counter = 1  # reset if just entered AVOIDING
+            
+            # Ejecutar evasión solo si el contador alcanza el umbral
+            if self.avoiding_counter >= self.avoiding_threshold:
+                rospy.loginfo("AVOIDING obstacle")
+                self.obstacle_avoidance_loop(obstacle_left=obstacle_left)
+                self.avoiding_counter = 0  # reset after avoidance
         
-        elif current_state == "FOLLOWING" and person_center is not None:
+        elif self.state == "FOLLOWING" and person_center is not None:
             # Follow person
             person_center_x = person_center[0]
             error_x = person_center_x - image_width // 2
@@ -85,12 +98,14 @@ class RobotController:
             twist.angular.z = angular_vel
             rospy.loginfo(f"FOLLOWING person - Lin: {twist.linear.x:.2f}, Ang: {twist.angular.z:.2f}")
         
-        elif current_state == "SEARCHING":  # SEARCHING
+        elif self.state == "SEARCHING":  # SEARCHING
             # Rotate to search for person
             twist.angular.z = self.turning_speed
             twist.linear.x = 0.0
             rospy.loginfo("SEARCHING for person")
         
+        self.previous_state = self.state  # Update previous state for next iteration
+
         return twist
 
     def person_at_center_x(self, ground_truth, observed, threshold=0.1):
