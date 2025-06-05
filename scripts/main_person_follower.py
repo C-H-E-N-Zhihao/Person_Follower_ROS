@@ -17,7 +17,7 @@ class PersonFollowerMain:
     
     def run(self):
         """Main control loop"""
-        rate = rospy.Rate(20)  # 10 Hz
+        rate = rospy.Rate(20)  # 20 Hz
         
         while not rospy.is_shutdown():
             # Get sensor data

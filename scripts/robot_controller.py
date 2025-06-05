@@ -78,7 +78,7 @@ class RobotController:
             # Ejecutar evasión solo si el contador alcanza el umbral
             if self.avoiding_counter >= self.avoiding_threshold:
                 rospy.loginfo("AVOIDING obstacle")
-                self.obstacle_avoidance_loop(obstacle_left=obstacle_left)
+                self.obstacle_avoidance_loop(obstacle_left=obstacle_left, person_center=person_center)
                 self.avoiding_counter = 0  # reset after avoidance
         
         elif self.state == "FOLLOWING" and person_center is not None:
@@ -126,14 +126,26 @@ class RobotController:
 
         return normalized_error <= threshold
         
-    def obstacle_avoidance_loop(self, obstacle_left=False):
+    def obstacle_avoidance_loop(self, obstacle_left=False, person_center=None):
         """
         Reactive obstacle avoidance using odometry-based rotation.
         1. Rotate 90° to the left
         2. Move forward
         3. Rotate 90° to the right
         """
-        C = -1 if obstacle_left else 1
+        # Determine direction based on person and obstacle positions
+        if person_center is not None:
+            person_center_x = person_center[0]
+            if person_center_x < CENTER_WAITING_PERSON[0]:
+                person_left = True
+            else:
+                person_left = False
+        else:
+            person_left = True
+            C = 1
+        
+        C = 1 if person_left else -1
+        C = -1 if obstacle_left else C
 
         # Step 1: Rotate 90° left (positive angle)
         self.odom_helper.rotate_by_angle(math.radians(90 * C))
@@ -153,8 +165,6 @@ class RobotController:
 
         self.stop_robot()
 
-
-    	
     def move_robot(self, twist):
         """Send movement command to robot"""
         self.move_kobuki.move_robot(twist)
