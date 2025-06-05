@@ -6,176 +6,188 @@ import math
 from odom_helper import OdomHelper
 from move_robot import MoveKobuki
 
-CENTER_WAITING_PERSON = (320, 177)
-
 class RobotController:
+    # Constants
+    CENTER_WAITING_PERSON = (320, 177)
+    STATES = {
+        'SEARCHING': 'SEARCHING',
+        'FOLLOWING': 'FOLLOWING', 
+        'AVOIDING': 'AVOIDING',
+        'WAITING': 'WAITING'
+    }
+    
     def __init__(self):
         self.move_kobuki = MoveKobuki()
-
-        # Initialize OdomHelper for odometry-based movements
-        self.odom_helper = OdomHelper(self.move_robot)
+        self.odom_helper = OdomHelper(self._move_robot_internal)
         
-        # Control parameters
+        # Movement parameters
         self.following_speed = 0.15
         self.turning_speed = 0.15
         self.angular_gain = 0.001
         self.max_angular_speed = 0.8
-
+        
         # Avoidance parameters
         self.avoiding_counter = 0
-        self.avoiding_threshold = 5  # number of cycles before activating evasion
-        self.previous_state = None
-
-        self.center_waiting_person = (320, 177)
+        self.avoiding_threshold = 5
+        self.avoidance_forward_duration = 2.0
+        self.avoidance_forward_speed = 0.1
+        
+        # Detection parameters
         self.threshold_center_wp = 0.2
         
-        # State
-        self.state = "SEARCHING"  # SEARCHING, FOLLOWING, AVOIDING
-    
+        # State management
+        self.current_state = self.STATES['SEARCHING']
+        self.previous_state = None
+
     def update_state(self, person_detected, person_center, obstacle_front):
-        """Update robot state based on sensors"""
-        
+        """Update robot state based on sensor inputs"""
         if obstacle_front:
-            person_at_center = self.person_at_center_x(self.center_waiting_person, person_center, self.threshold_center_wp)
-            
-            if person_detected and person_at_center:
-                self.state = "WAITING"
-            
-            elif not(person_detected) or not(person_at_center):
-                self.state = "AVOIDING"
-        else:
-            if person_detected:
-                self.state = "FOLLOWING"  
-                
+            if person_detected and self._is_person_centered(person_center):
+                self.current_state = self.STATES['WAITING']
             else:
-                self.state = "SEARCHING"
-    
+                self.current_state = self.STATES['AVOIDING']
+        else:
+            self.current_state = self.STATES['FOLLOWING'] if person_detected else self.STATES['SEARCHING']
+
     def generate_twist(self, person_detected, person_center, image_width, obstacle_front, obstacle_left):
         """Generate movement command based on current situation"""
-        twist = Twist()
-        
-        # Update state
         self.update_state(person_detected, person_center, obstacle_front)
         
-        if self.state == "WAITING": 
-            print(person_center)
-            twist.angular.z = 0.0
-            twist.linear.x = 0.0  
-            rospy.loginfo("WAITING")
-            
+        # State machine for movement generation
+        twist_generators = {
+            self.STATES['WAITING']: self._generate_waiting_twist,
+            self.STATES['AVOIDING']: lambda: self._generate_avoiding_twist(obstacle_left, person_center),
+            self.STATES['FOLLOWING']: lambda: self._generate_following_twist(person_center, image_width),
+            self.STATES['SEARCHING']: self._generate_searching_twist
+        }
         
-        elif self.state == "AVOIDING":
-            # Turn right and back up slightly
-            #twist.angular.z = self.turning_speed  # Turn right
-            #twist.linear.x = 0.0  # Stop moving forward
+        twist = twist_generators[self.current_state]()
+        self.previous_state = self.current_state
+        
+        return twist
 
-            # Incrementar contador si sigue en el mismo estado
-            if self.previous_state == "AVOIDING":
-                self.avoiding_counter += 1
-            else:
-                self.avoiding_counter = 1  # reset if just entered AVOIDING
-            
-            # Ejecutar evasión solo si el contador alcanza el umbral
-            if self.avoiding_counter >= self.avoiding_threshold:
-                rospy.loginfo("AVOIDING obstacle")
-                self.obstacle_avoidance_loop(obstacle_left=obstacle_left, person_center=person_center)
-                self.avoiding_counter = 0  # reset after avoidance
+    def _generate_waiting_twist(self):
+        """Generate twist for waiting state"""
+        twist = Twist()
+        rospy.loginfo("WAITING")
+        return twist
+
+    def _generate_avoiding_twist(self, obstacle_left, person_center):
+        """Generate twist for obstacle avoidance"""
+        twist = Twist()
         
-        elif self.state == "FOLLOWING" and person_center is not None:
-            # Follow person
-            person_center_x = person_center[0]
-            error_x = person_center_x - image_width // 2
-            angular_vel = -self.angular_gain * error_x
+        # Increment counter if staying in avoiding state
+        if self.previous_state == self.STATES['AVOIDING']:
+            self.avoiding_counter += 1
+        else:
+            self.avoiding_counter = 1
+        
+        # Execute avoidance maneuver when threshold is reached
+        if self.avoiding_counter >= self.avoiding_threshold:
+            rospy.loginfo("AVOIDING obstacle")
+            self._execute_obstacle_avoidance(obstacle_left, person_center)
+            self.avoiding_counter = 0
+        
+        return twist
+
+    def _generate_following_twist(self, person_center, image_width):
+        """Generate twist for person following"""
+        twist = Twist()
+        
+        if person_center is not None:
+            # Calculate angular velocity based on person position
+            error_x = person_center[0] - image_width // 2
+            angular_vel = self._clamp(-self.angular_gain * error_x, 
+                                    -self.max_angular_speed, 
+                                    self.max_angular_speed)
             
-            # Limit angular velocity
-            if angular_vel > self.max_angular_speed:
-                angular_vel = self.max_angular_speed
-            elif angular_vel < -self.max_angular_speed:
-                angular_vel = -self.max_angular_speed
-            
-            # Move forward at constant speed
             twist.linear.x = self.following_speed
             twist.angular.z = angular_vel
             rospy.loginfo(f"FOLLOWING person - Lin: {twist.linear.x:.2f}, Ang: {twist.angular.z:.2f}")
         
-        elif self.state == "SEARCHING":  # SEARCHING
-            # Rotate to search for person
-            twist.angular.z = self.turning_speed
-            twist.linear.x = 0.0
-            rospy.loginfo("SEARCHING for person")
-        
-        self.previous_state = self.state  # Update previous state for next iteration
-
         return twist
 
-    def person_at_center_x(self, ground_truth, observed, threshold=0.1):
-        """
-        Checks if the observed person is at the center based on x-axis error.
-        """
-        
-        if observed == None:
+    def _generate_searching_twist(self):
+        """Generate twist for searching state"""
+        twist = Twist()
+        twist.angular.z = self.turning_speed
+        rospy.loginfo("SEARCHING for person")
+        return twist
+
+    def _is_person_centered(self, person_center):
+        """Check if person is centered in the image"""
+        if person_center is None:
             return False
-
-        # Calculate absolute error in x
-        error_x = abs(ground_truth[0] - observed[0])
-
-        # Normalize by ground truth x to make it scale-independent
-        norm_factor = abs(ground_truth[0])
-
-        normalized_error = error_x / norm_factor
-
-        return normalized_error <= threshold
         
-    def obstacle_avoidance_loop(self, obstacle_left=False, person_center=None):
-        """
-        Reactive obstacle avoidance using odometry-based rotation.
-        1. Rotate 90° to the left
-        2. Move forward
-        3. Rotate 90° to the right
-        """
-        # Determine direction based on person and obstacle positions
-        if person_center is not None:
-            person_center_x = person_center[0]
-            if person_center_x < CENTER_WAITING_PERSON[0]:
-                person_left = True
-            else:
-                person_left = False
-        else:
-            person_left = True
-            C = 1
+        error_x = abs(self.CENTER_WAITING_PERSON[0] - person_center[0])
+        normalized_error = error_x / abs(self.CENTER_WAITING_PERSON[0])
         
-        C = 1 if person_left else -1
-        C = -1 if obstacle_left else C
+        return normalized_error <= self.threshold_center_wp
 
-        # Step 1: Rotate 90° left (positive angle)
-        self.odom_helper.rotate_by_angle(math.radians(90 * C))
-
-        # Step 2: Move forward
-        twist_forward = Twist()
-        twist_forward.linear.x = 0.1
-        duration = rospy.Duration(2.0)
-        rate = rospy.Rate(10)
-        start_time = rospy.Time.now()
-        while rospy.Time.now() - start_time < duration and not rospy.is_shutdown():
-            self.move_robot(twist_forward)
-            rate.sleep()
-
-        # Step 3: Rotate 90° right (negative angle)
-        self.odom_helper.rotate_by_angle(math.radians(-90 * C))
-
+    def _execute_obstacle_avoidance(self, obstacle_left, person_center):
+        """
+        Simplified obstacle avoidance: rotate away from obstacle, 
+        move forward, then rotate back
+        """
+        # Determine rotation direction
+        rotation_direction = self._get_avoidance_direction(obstacle_left, person_center)
+        rotation_angle = math.radians(90 * rotation_direction)
+        
+        # Execute avoidance maneuver
+        self.odom_helper.rotate_by_angle(rotation_angle)
+        self._move_forward_for_duration(self.avoidance_forward_speed, self.avoidance_forward_duration)
+        self.odom_helper.rotate_by_angle(-rotation_angle)
         self.stop_robot()
 
+    def _get_avoidance_direction(self, obstacle_left, person_center):
+        """
+        Determine which direction to rotate for obstacle avoidance
+        Returns: 1 for left rotation, -1 for right rotation
+        """
+        # Default: rotate left
+        direction = 1
+        
+        # If person is detected, consider their position
+        if person_center is not None:
+            person_is_left = person_center[0] < self.CENTER_WAITING_PERSON[0]
+            direction = 1 if person_is_left else -1
+        
+        # If obstacle is on the left, rotate right instead
+        if obstacle_left:
+            direction = -1
+            
+        return direction
+
+    def _move_forward_for_duration(self, speed, duration):
+        """Move robot forward at given speed for specified duration"""
+        twist = Twist()
+        twist.linear.x = speed
+        
+        end_time = rospy.Time.now() + rospy.Duration(duration)
+        rate = rospy.Rate(10)
+        
+        while rospy.Time.now() < end_time and not rospy.is_shutdown():
+            self._move_robot_internal(twist)
+            rate.sleep()
+
+    def _move_robot_internal(self, twist):
+        """Internal method for robot movement (used by odom_helper)"""
+        self.move_kobuki.move_robot(twist)
+
+    def _clamp(self, value, min_val, max_val):
+        """Clamp value between min and max"""
+        return max(min_val, min(value, max_val))
+
+    # Public interface methods
     def move_robot(self, twist):
         """Send movement command to robot"""
         self.move_kobuki.move_robot(twist)
-    
+
     def stop_robot(self):
         """Stop the robot"""
-        twist = Twist()  # All zeros
-        self.move_kobuki.move_robot(twist)
-    
+        self.move_robot(Twist())
+
     def cleanup(self):
         """Clean up resources"""
         self.stop_robot()
         self.move_kobuki.clean_class()
-        
