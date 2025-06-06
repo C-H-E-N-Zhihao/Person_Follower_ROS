@@ -7,7 +7,7 @@ import time
 
 class RobotController:
     # Constants
-    CENTER_WAITING_PERSON = (330, 180)
+    CENTER_WAITING_PERSON = (320, 180)
     STATES = {
         'SEARCHING': 'SEARCHING',
         'FOLLOWING': 'FOLLOWING',
