@@ -141,6 +141,9 @@ rosrun my_following_person_package main_person_follower.py
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## 🔥 Demo
+[🎬 Watch demo video](https://github.com/user-attachments/assets/8469ec2c-ddee-4241-85b4-c9284b3eb90b)
+
 ## 👥 Authors
 <div align="center">
   
