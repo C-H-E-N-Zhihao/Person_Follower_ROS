@@ -1,8 +1,8 @@
-# Person Following Robot
+# 🤖 Person Following Robot
 
 A ROS-based person detection and following system for TurtleBot3 robots using YOLO object detection and laser scanner-based obstacle avoidance.
 
-## Overview
+## 📋 Overview
 
 This project implements an autonomous person-following robot that can:
 - Detect and track persons using YOLOv8 computer vision
@@ -11,14 +11,14 @@ This project implements an autonomous person-following robot that can:
 - Navigate around obstacles and return to following behavior
 - Search for persons when none are detected
 
-## Hardware Requirements
+## 🔧 Hardware Requirements
 
 - TurtleBot3 Waffle Pi robot
 - Raspberry Pi camera module
 - LiDAR sensor (for obstacle detection)
 - Network connection between robot and control computer
 
-## Software Dependencies
+## 💻 Software Dependencies
 
 ### System Requirements
 - Ubuntu 20.04 (recommended)
@@ -37,7 +37,7 @@ sudo apt install python3-pip
 pip install ultralytics
 ```
 
-## Installation
+## 📥 Installation
 
 1. Clone this repository to your catkin workspace:
 ```bash
@@ -61,7 +61,7 @@ echo "export TURTLEBOT3_MODEL=waffle_pi" >> ~/.bashrc
 source ~/.bashrc
 ```
 
-## Usage
+## 🚀 Usage
 
 The system requires multiple terminals to run. Follow these steps in order:
 
@@ -92,7 +92,7 @@ roslaunch turtlebot3_bringup turtlebot3_remote.launch
 rosrun my_following_person_package main_person_follower.py
 ```
 
-## System Architecture
+## 🧩 System Architecture
 
 ### Core Components
 
@@ -127,7 +127,7 @@ rosrun my_following_person_package main_person_follower.py
 - **AVOIDING**: Robot executes a 90° rotation, moves forward, then rotates back
 - **WAITING**: Robot stops when person is centered but obstacle is detected ahead
 
-## Topics
+## 📡 Topics
 
 ### Subscribed Topics
 - `/camera/image` (sensor_msgs/Image): Camera feed for person detection
@@ -137,7 +137,11 @@ rosrun my_following_person_package main_person_follower.py
 ### Published Topics
 - `/cmd_vel` (geometry_msgs/Twist): Robot velocity commands
 
-## Authors
+## 📜 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 👥 Authors
 <div align="center">
   
 <!-- Team Members -->
